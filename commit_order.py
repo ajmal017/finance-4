@@ -123,11 +123,12 @@ class TestApp(TestWrapper, TestClient):
 
 
         #ticker2price = {'GAZP': 223.62, 'NVTK': 1289.6, 'YNDX': 2380.0}
-        ticker2price = {'YNDX': 2380.0}
+        ticker2price = {'MGNT': 3600.0, 'TRMK': 56.56}
 
         for ticker in ticker2price:
+            ticker = 'MGNT'
             price = ticker2price[ticker]
-            cnt = 900000 / (len(ticker2price)) / price
+            cnt = 400000 / (len(ticker2price)) / price
             cnt = self.process_cnt(cnt)
             start_price = self.round_price(price*1.003)
             profit_price = self.round_price(price*1.01)
@@ -139,11 +140,11 @@ class TestApp(TestWrapper, TestClient):
             print("order_id: {}, cnt: {}, start_price: {}, profit_price: {}".format(order_id, cnt, start_price, profit_price))
 
 
-            parent, takeProfit = OrderSamples.TopBracketOrder(order_id, "BUY", cnt, start_price, profit_price)
+            parent, takeProfit = OrderSamples.TopBracketOrder(order_id, "BUY", cnt, 3560, profit_price)
             self.placeOrder(parent.orderId, contract, parent)
             self.placeOrder(takeProfit.orderId, contract, takeProfit)
 
-
+            break
 
 
 
