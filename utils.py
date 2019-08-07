@@ -60,8 +60,32 @@ def load_single(ticker, data_prefix, start_date, end_date, period=3):
         local_file.write(line.strip().decode( "utf-8" )+'\n')
     local_file.close()
     
+
+def process_cnt(cnt):
+    if cnt > 50:
+        cnt = cnt // 10 * 10
+
+    if cnt > 500:
+        cnt = cnt // 100 * 100
+
+    return cnt    
     
     
+def round_price(price):
+    for k in range(1, 10):
+        new_price = round(price, k)
+        if np.abs(price - new_price) / price < 0.0001:
+            break
+
+
+    for min_clip in [5 / (10 ** k), 2 / (10 ** k)]:
+        clipped_price = round(float(price) / min_clip) * min_clip
+        if np.abs(price - clipped_price) / price < 0.0001:
+            return clipped_price
+        
+    return new_price    
+
+
 def load_tickers(data_prefix, tickers, start_date, end_date, period=3):
     for ticker in tqdm(tickers):
         try:

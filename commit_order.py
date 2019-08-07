@@ -35,7 +35,7 @@ from ibapi.scanner import ScanData
 from ibapi import utils
 import pandas as pd
 import numpy as np
-
+from utils import round_price, process_cnt
 
 # ! [socket_declare]
 class TestClient(EClient):
@@ -95,27 +95,6 @@ class TestApp(TestWrapper, TestClient):
 
 
 
-    def process_cnt(self, cnt):
-        if cnt > 50:
-            cnt = cnt // 10 * 10
-
-        if cnt > 500:
-            cnt = cnt // 100 * 100
-
-        return cnt
-
-
-    def round_price(self, price):
-        ready = False
-        for k in range(1, 10):
-            new_price = round(price, k)
-            if np.abs(price - new_price) / price < 0.0001:
-                last_ch_new_price = float(str(new_price)[:-1] + str(int(str(new_price)[-1]) // 2 * 2))
-                if np.abs(price - last_ch_new_price) / price < 0.0001:
-                    return last_ch_new_price
-                else:
-                    return new_price
-
     def my_order_req(self):
 
         self.reqIds(-1)
@@ -129,9 +108,9 @@ class TestApp(TestWrapper, TestClient):
             ticker = 'MGNT'
             price = ticker2price[ticker]
             cnt = 400000 / (len(ticker2price)) / price
-            cnt = self.process_cnt(cnt)
-            start_price = self.round_price(price*1.003)
-            profit_price = self.round_price(price*1.01)
+            cnt = process_cnt(cnt)
+            start_price = round_price(price*1.003)
+            profit_price = round_price(price*1.01)
 
             contract = ContractSamples.MYStock(ticker)
 
@@ -140,7 +119,7 @@ class TestApp(TestWrapper, TestClient):
             print("order_id: {}, cnt: {}, start_price: {}, profit_price: {}".format(order_id, cnt, start_price, profit_price))
 
 
-            parent, takeProfit = OrderSamples.TopBracketOrder(order_id, "BUY", cnt, 3560, profit_price)
+            parent, takeProfit = OrderSamples.TopBracketOrder(order_id, "BUY", cnt, start_price, profit_price)
             self.placeOrder(parent.orderId, contract, parent)
             self.placeOrder(takeProfit.orderId, contract, takeProfit)
 
