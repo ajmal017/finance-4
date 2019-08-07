@@ -26,18 +26,19 @@ from ibapi.tag_value import TagValue
 
 from ibapi.account_summary_tags import *
 
-from ContractSamples import ContractSamples
-from OrderSamples import OrderSamples
-from AvailableAlgoParams import AvailableAlgoParams
-from ScannerSubscriptionSamples import ScannerSubscriptionSamples
-from FaAllocationSamples import FaAllocationSamples
+from ibkr_api.ContractSamples import ContractSamples
+from ibkr_api.OrderSamples import OrderSamples
+from ibkr_api.AvailableAlgoParams import AvailableAlgoParams
+from ibkr_api.ScannerSubscriptionSamples import ScannerSubscriptionSamples
+from ibkr_api.FaAllocationSamples import FaAllocationSamples
 from ibapi.scanner import ScanData
 from ibapi import utils
 import pandas as pd
 import numpy as np
 from utils import round_price, process_cnt
 
-# ! [socket_declare]
+
+
 class TestClient(EClient):
     def __init__(self, wrapper):
         EClient.__init__(self, wrapper)
@@ -102,10 +103,9 @@ class TestApp(TestWrapper, TestClient):
 
 
         #ticker2price = {'GAZP': 223.62, 'NVTK': 1289.6, 'YNDX': 2380.0}
-        ticker2price = {'MGNT': 3600.0, 'TRMK': 56.56}
+        ticker2price = {'MGNT': 3570.0, 'TRMK': 55.56}
 
         for ticker in ticker2price:
-            ticker = 'MGNT'
             price = ticker2price[ticker]
             cnt = 400000 / (len(ticker2price)) / price
             cnt = process_cnt(cnt)
@@ -123,7 +123,7 @@ class TestApp(TestWrapper, TestClient):
             self.placeOrder(parent.orderId, contract, parent)
             self.placeOrder(takeProfit.orderId, contract, takeProfit)
 
-            break
+            
 
 
 

@@ -77,13 +77,14 @@ def round_price(price):
         if np.abs(price - new_price) / price < 0.0001:
             break
 
-
     for min_clip in [5 / (10 ** k), 2 / (10 ** k)]:
         clipped_price = round(float(price) / min_clip) * min_clip
-        if np.abs(price - clipped_price) / price < 0.0001:
+        clipped_price = round(clipped_price, k)
+        if np.abs(price - clipped_price) / price < 0.0002:
+
             return clipped_price
         
-    return new_price    
+    return new_price  
 
 
 def load_tickers(data_prefix, tickers, start_date, end_date, period=3):
