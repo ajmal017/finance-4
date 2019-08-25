@@ -96,12 +96,6 @@ def load_tickers(data_prefix, tickers, start_date, end_date, period=3):
             print(ticker)
     
     
-# def load_update_today(data_prefix, tickers):
-#     for ticker in tqdm(tickers):
-#         try:
-#             load_single(ticker, data_prefix, start_date, end_date, period)    
-    
-    
 def load_dfs(dir_path, tickers):
     ticker2df = {}
     for ticker in tickers:
@@ -122,27 +116,149 @@ def load_dfs(dir_path, tickers):
 
 
 
+def single_target_1(series):
+    profit = (series[-1] - series[1]) / series[1]
+    return profit
+
+def single_target_2(series):
+    profit = (series[-1] - series[0]) / series[1]
+
+    return profit
+
+def single_target_3(series):
+    profit = (series[2:].max() - series[1]) / series[1]
+
+    return profit
+
+def single_target_4(series):
+    profit = (series[2:].min() - series[1]) / series[1]
+
+    return profit
+
+def single_target_5(series):
+    profit = (series[2:].mean() - series[1]) / series[1]
+
+    return profit
+
+def single_target_6(series):
+    profit = series[2:].std() / series[1]
+
+    return profit
+
+def single_target_7(series):
+    profit = series[2:].max() / series[2:].min()
+
+    return profit
+
+
+
+
+
+
+def single_profit_2(series, return_idxs=False):
+
+    #profit = (series[-5:-4].min() - series[1]) / series[1]#  > 0.01
+    #profit = (series[-1] - series[1]) / series[1]  #> 0.01
+
+    UPPER_COEF = 1.003
+    BUY_HORIZON = 8
+    can_buy = (series[2:BUY_HORIZON] <= series[1]*UPPER_COEF).max()
+    if can_buy:
+        buy_idx = np.where(series[2:BUY_HORIZON] <= series[1]*UPPER_COEF)[0][0] + 2
+
+        take_profit_price = series[buy_idx] * 1.01
+        stop_loss_price = series[buy_idx] * 0.000000995
+
+        take_profit_mask = series[buy_idx:-3] > take_profit_price
+        stop_loss_mask = series[buy_idx:-3] < stop_loss_price
+
+        can_sell = (take_profit_mask | stop_loss_mask).max()
+        #can_sell = (take_profit_mask ).max()
+
+        if can_sell:
+            #sell_idx = np.where(take_profit_mask )[0][0] + 2
+            sell_idx = np.where(take_profit_mask | stop_loss_mask)[0][0] + buy_idx
+            profit = 0.01
+
+        else:
+            sell_idx = len(series)-3
+
+        profit = (series[sell_idx] - series[buy_idx]) / series[buy_idx]
+  
+    else:
+        profit = 0
+        buy_idx = len(series)-1
+        sell_idx = len(series)-1
+        
+    if return_idxs:
+        return buy_idx, sell_idx
+    else:
+        return profit
+
+
+
+def single_profit(series):
+    if len(series) > 10:
+        UPPER_COEF = 1.003
+        can_buy = (series[2:6] <= series[1]*UPPER_COEF).max()
+        if can_buy:
+            buy_idx = np.where(series[2:6] <= series[1]*UPPER_COEF)[0][0] + 2
+            sell_idx = len(series[:-5]) + np.random.randint(5)#+ series[-5:].argmin()
+            sell_idx = -1
+            profit = (series[sell_idx] - series[buy_idx]) / series[buy_idx]
+        else:
+            profit = 0
+    else:
+        profit = 0
+        
+    return profit
+
+
+def calc_target(y_serieses, foo):
+    target = []
+    for ticker_serieses in y_serieses:
+        for series in ticker_serieses:
+            val = foo(series)
+            target.append(val)
+            
+    return np.array(target)
+
+
+def tmp_foo(y_serieses, foo):
+    target = []
+    k = 0
+    for ticker_serieses in y_serieses:
+        for series in ticker_serieses:
+            val = foo(series)
+            target.append(val)
+            if k == 1496:
+                return series
+            k += 1
+
+
+
 def single_sample(df, corn_date, test_mode):
     feats, target_vals = None, None
-    target_df = df_between(df, corn_date, corn_date + timedelta(days=1))
+    target_df = df_between(df, corn_date, corn_date + timedelta(days=3))
     
+    #target_df = df_between(df, corn_date)
+        
     last_df = df_between(df, start_date=None, end_date=corn_date)
     close_price = last_df['<CLOSE>'].values[-1]
     
     if len(target_df) > 0 or test_mode:
+        #target_df = df_future(target_df, day_cnt=1)
+
         feats = calc_feat(df, target_df, corn_date)
         target_vals = np.array([close_price] + list(target_df['<OPEN>'].values))
-
-            
-        #target = (target_vals[-1] - target_vals[0]) / target_vals[0] > 0.
 
 
     return feats, target_vals
 
     
-def single_ticker(ticker_df, corn_date, test_mode):
+def single_ticker(ticker_df, corn_dates, test_mode):
     ticker_feats, ticker_targets = [], []
-    for date in corn_date:
+    for date in corn_dates:
         f, t = single_sample(ticker_df, date, test_mode)
         if f is not None:
             ticker_feats.append(f)
@@ -205,9 +321,8 @@ def calc_base_time_features(series):
              (series[-1] - series[0]) / series.max()
             ]
     
-    #col_names = 
     
-    return feats#, col_names
+    return feats
 
 
 def calc_support_features(series):
@@ -233,8 +348,6 @@ def calc_support_features(series):
             
     if len(series) == 0:
         series = np.array([np.nan])
-
-
         
         
     upper_supports_diff = np.abs(upper_supports - series[-1])
@@ -251,9 +364,26 @@ def calc_support_features(series):
     
     
     return support_features
+   
+def base_aggs(series):
+    aggs = np.array([series.mean(), series.max(), series.min(), np.median(series)])
+    return aggs
     
-    
+def calc_target_like_features(df):
+    groupby_date = df.groupby('date')['<OPEN>']
+    target_aggs_1 = base_aggs(groupby_date.apply(lambda x: single_target_1(np.array([0]+x.tolist()))).values)
+    target_aggs_2 = base_aggs(groupby_date.apply(lambda x: single_target_2(np.array([0]+x.tolist()))).values)
+    target_aggs_3 = base_aggs(groupby_date.apply(lambda x: single_target_3(np.array([0]+x.tolist()))).values)
+    target_aggs_4 = base_aggs(groupby_date.apply(lambda x: single_target_4(np.array([0]+x.tolist()))).values)
+    target_aggs_5 = base_aggs(groupby_date.apply(lambda x: single_target_5(np.array([0]+x.tolist()))).values)
+    target_aggs_6 = base_aggs(groupby_date.apply(lambda x: single_target_6(np.array([0]+x.tolist()))).values)
+    target_aggs_7 = base_aggs(groupby_date.apply(lambda x: single_target_7(np.array([0]+x.tolist()))).values)
 
+    target_like_features = np.concatenate([target_aggs_1, target_aggs_2, target_aggs_3, target_aggs_4, target_aggs_5, target_aggs_6, target_aggs_7], axis=0)    
+
+    return target_like_features
+
+    
 def calc_feat(df, target_df, corn_date):
     ticker = df['<TICKER>'].values[0] 
         
@@ -283,10 +413,11 @@ def calc_feat(df, target_df, corn_date):
     
     
     support_features = calc_support_features(month_series)
-    
+    target_like_features = calc_target_like_features(df_between(df, corn_date - timedelta(days=31), corn_date))
+
     close_price = [day3_df['<CLOSE>'].values[-1]]
     
-    result = np.concatenate([month_feats, week_feats, day3_feats, intoday_base_features, support_features, close_price, next_day_feat], axis=0)
+    result = np.concatenate([month_feats, week_feats, day3_feats, intoday_base_features, support_features, close_price, next_day_feat, target_like_features], axis=0)
     result = np.expand_dims(result, axis=0)
     result = pd.DataFrame(result)
     
@@ -308,6 +439,11 @@ def df_last(df, day_cnt):
     end_date = dates[-1] + timedelta(days=1)
     return df_between(df, start_date, end_date)
 
+def df_future(df, day_cnt):
+    dates = np.sort(df['date'].unique())[:day_cnt]
+    start_date = dates[0]
+    end_date = dates[-1] + timedelta(days=1)
+    return df_between(df, start_date, end_date)
         
 def calc_support_levels(series):
     if len(series) < 2:
