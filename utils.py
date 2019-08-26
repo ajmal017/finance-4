@@ -59,32 +59,6 @@ def load_single(ticker, data_prefix, start_date, end_date, period=3):
     for line in txt: #записываем свечи строку за строкой. 
         local_file.write(line.strip().decode( "utf-8" )+'\n')
     local_file.close()
-    
-
-def process_cnt(cnt):
-    if cnt > 50:
-        cnt = cnt // 10 * 10
-
-    if cnt > 500:
-        cnt = cnt // 100 * 100
-
-    return cnt    
-    
-    
-def round_price(price):
-    for k in range(1, 10):
-        new_price = round(price, k)
-        if np.abs(price - new_price) / price < 0.0001:
-            break
-
-    for min_clip in [5 / (10 ** k), 2 / (10 ** k)]:
-        clipped_price = round(float(price) / min_clip) * min_clip
-        clipped_price = round(clipped_price, k)
-        if np.abs(price - clipped_price) / price < 0.0002:
-
-            return clipped_price
-        
-    return new_price  
 
 
 def load_tickers(data_prefix, tickers, start_date, end_date, period=3):
@@ -162,12 +136,12 @@ def single_profit_2(series, return_idxs=False):
 
     UPPER_COEF = 1.003
     BUY_HORIZON = 8
-    can_buy = (series[2:BUY_HORIZON] <= series[1]*UPPER_COEF).max()
+    can_buy = (series[2:BUY_HORIZON] <= series[1] * UPPER_COEF).max()
     if can_buy:
         buy_idx = np.where(series[2:BUY_HORIZON] <= series[1]*UPPER_COEF)[0][0] + 2
 
-        take_profit_price = series[buy_idx] * 1.01
-        stop_loss_price = series[buy_idx] * 0.000000995
+        take_profit_price = series[buy_idx] * 1.012
+        stop_loss_price = series[buy_idx] * 0.000001
 
         take_profit_mask = series[buy_idx:-3] > take_profit_price
         stop_loss_mask = series[buy_idx:-3] < stop_loss_price
@@ -178,12 +152,13 @@ def single_profit_2(series, return_idxs=False):
         if can_sell:
             #sell_idx = np.where(take_profit_mask )[0][0] + 2
             sell_idx = np.where(take_profit_mask | stop_loss_mask)[0][0] + buy_idx
-            profit = 0.01
+            
+            profit = (take_profit_price - series[buy_idx]) / series[buy_idx]
 
         else:
             sell_idx = len(series)-3
 
-        profit = (series[sell_idx] - series[buy_idx]) / series[buy_idx]
+            profit = (series[sell_idx] - series[buy_idx]) / series[buy_idx]
   
     else:
         profit = 0
@@ -246,7 +221,8 @@ def single_sample(df, corn_date, test_mode):
     last_df = df_between(df, start_date=None, end_date=corn_date)
     close_price = last_df['<CLOSE>'].values[-1]
     
-    if len(target_df) > 0 or test_mode:
+    #if len(target_df) > 0 or test_mode:
+    if target_df['date'].min() == corn_date or test_mode:
         #target_df = df_future(target_df, day_cnt=1)
 
         feats = calc_feat(df, target_df, corn_date)
@@ -464,22 +440,6 @@ def calc_support_levels(series):
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-        
-        
         
         
         
