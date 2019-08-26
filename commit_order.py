@@ -36,7 +36,7 @@ from ibapi import utils
 import pandas as pd
 import numpy as np
 from utils import round_price, process_cnt
-
+from parameters import ibkr_info
 
 
 class TestClient(EClient):
@@ -103,15 +103,29 @@ class TestApp(TestWrapper, TestClient):
 
 
         #ticker2price = {'GAZP': 223.62, 'NVTK': 1289.6, 'YNDX': 2380.0}
-        ticker2price = {'MGNT': 3570.0, 'TRMK': 55.56}
-
+        ticker2price = {'FEES': 0.1806, 'GMKN': 15040.0, 'POLY': 836.9, 'ROSN': 407.5, 'RUAL': 26.995}
+        ticker2price = {'PLZL': 7187.5, 'RUAL': 26.55}
+        ticker2price = {'AFKS': 11.56, 'ALRS': 73.01, 'MAGN': 38.945, 'PLZL': 6958.5, 'YNDX': 2440.0}
+        ticker2price = {'AFKS': 11.141, 'PLZL': 7222.0, 'VTBR': 0.039235}
+        ticker2price = {'VTBR': 0.039235}
+        ticker2price = {'MAGN': 38.4, 'TRNFP': 151850.0}
+        ticker2price = {'AFKS': 11.087, 'RUAL': 25.9, 'TRMK': 52.98}
+        
         for ticker in ticker2price:
             price = ticker2price[ticker]
-            cnt = 400000 / (len(ticker2price)) / price
-            cnt = process_cnt(cnt)
+                        
+            cnt = 2000000 / (len(ticker2price)) / price
+            cnt = (cnt // ibkr_info[ticker]['min_quantity']) * ibkr_info[ticker]['min_quantity']
+
+
             start_price = round_price(price*1.003)
             profit_price = round_price(price*1.01)
 
+        
+            start_price = (start_price // ibkr_info[ticker]['precise']) * ibkr_info[ticker]['precise']
+            profit_price = (profit_price // ibkr_info[ticker]['precise']) * ibkr_info[ticker]['precise']
+        
+        
             contract = ContractSamples.MYStock(ticker)
 
             order_id = self.nextOrderId()
