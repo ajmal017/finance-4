@@ -90,43 +90,52 @@ def load_dfs(dir_path, tickers):
 
 
 
+
 def single_target_1(series):
-    profit = (series[-1] - series[1]) / series[1]
+    profit = (series[-1] - series[1]) / series[0]
     return profit
 
 def single_target_2(series):
-    profit = (series[-1] - series[0]) / series[1]
+    profit = (series[-1] - series[0]) / series[0]
 
     return profit
 
 def single_target_3(series):
-    profit = (series[2:].max() - series[1]) / series[1]
+    profit = (series[1:].max() - series[0]) / series[0]
 
     return profit
 
 def single_target_4(series):
-    profit = (series[2:].min() - series[1]) / series[1]
+    profit = (series[1:].min() - series[0]) / series[0]
 
     return profit
 
 def single_target_5(series):
-    profit = (series[2:].mean() - series[1]) / series[1]
+    profit = (series[1:].mean() - series[0]) / series[0]
 
     return profit
 
 def single_target_6(series):
-    profit = series[2:].std() / series[1]
+    profit = series[1:].std() / series[0]
 
     return profit
 
 def single_target_7(series):
-    profit = series[2:].max() / series[2:].min()
+    profit = series[1:].max() / series[1:].min()
 
     return profit
 
 
+def target_df_2_one_day_series(target_df):
+    return target_df[target_df['date'] == target_df['corn_date']]['<OPEN>'].values
 
-
+def target_df_2_free_day_series(target_df):
+    return df_future(target_df[target_df['date'] >= target_df['corn_date']], 3)['<OPEN>'].values
+    
+def target_df_2_half_day_series(target_df):
+    one_day_series = df_future(target_df[target_df['date'] >= target_df['corn_date']], 3)['<OPEN>'].values
+    return one_day_series[:len(one_day_series) // 2]
+    
 
 
 def single_profit_2(series, return_idxs=False):
@@ -136,9 +145,9 @@ def single_profit_2(series, return_idxs=False):
 
     UPPER_COEF = 1.003
     BUY_HORIZON = 8
-    can_buy = (series[2:BUY_HORIZON] <= series[1] * UPPER_COEF).max()
+    can_buy = (series[1:BUY_HORIZON] <= series[0] * UPPER_COEF).max()
     if can_buy:
-        buy_idx = np.where(series[2:BUY_HORIZON] <= series[1]*UPPER_COEF)[0][0] + 2
+        buy_idx = np.where(series[1:BUY_HORIZON] <= series[0]*UPPER_COEF)[0][0] + 1
 
         take_profit_price = series[buy_idx] * 1.012
         stop_loss_price = series[buy_idx] * 0.000001
@@ -189,47 +198,48 @@ def single_profit(series):
     return profit
 
 
-def calc_target(y_serieses, foo):
+def calc_target(target_dfs, foo, df2series_foo):
     target = []
-    for ticker_serieses in y_serieses:
-        for series in ticker_serieses:
-            val = foo(series)
+    for ticker_targets in target_dfs:
+        for target_df in ticker_targets:
+            val = foo(df2series_foo(target_df))
             target.append(val)
             
     return np.array(target)
 
 
-def tmp_foo(y_serieses, foo):
-    target = []
-    k = 0
-    for ticker_serieses in y_serieses:
-        for series in ticker_serieses:
-            val = foo(series)
-            target.append(val)
-            if k == 1496:
-                return series
-            k += 1
+# def tmp_foo(y_serieses, foo):
+#     target = []
+#     k = 0
+#     for ticker_serieses in y_serieses:
+#         for series in ticker_serieses:
+#             val = foo(series)
+#             target.append(val)
+#             if k == 1496:
+#                 return series
+#             k += 1
 
 
 
 def single_sample(df, corn_date, test_mode):
     feats, target_vals = None, None
-    target_df = df_between(df, corn_date, corn_date + timedelta(days=3))
-    
+    target_df = df_between(df, corn_date - timedelta(days=5), corn_date + timedelta(days=20))
+    target_df['corn_date'] = corn_date
     #target_df = df_between(df, corn_date)
         
-    last_df = df_between(df, start_date=None, end_date=corn_date)
-    close_price = last_df['<CLOSE>'].values[-1]
+    #last_df = df_between(df, start_date=corn_date - timedelta(days=5), end_date=corn_date)
+    #close_price = last_df['<CLOSE>'].values[-1]
     
     #if len(target_df) > 0 or test_mode:
-    if target_df['date'].min() == corn_date or test_mode:
+    #if target_df['date'].min() == corn_date or test_mode:
+    if corn_date in target_df['date'].unique():
         #target_df = df_future(target_df, day_cnt=1)
+        feats = calc_feat(df, target_df)
 
-        feats = calc_feat(df, target_df, corn_date)
-        target_vals = np.array([close_price] + list(target_df['<OPEN>'].values))
+        #target_vals = np.array([close_price] + list(target_df['<OPEN>'].values))
 
 
-    return feats, target_vals
+    return feats, target_df
 
     
 def single_ticker(ticker_df, corn_dates, test_mode):
@@ -242,8 +252,8 @@ def single_ticker(ticker_df, corn_dates, test_mode):
 
     if len(ticker_feats) > 0:
         ticker_feats = pd.concat(ticker_feats, axis=0)
-        if not test_mode:
-            ticker_targets = np.array(ticker_targets)
+        #if not test_mode:
+        #    ticker_targets = np.array(ticker_targets)
 
     return ticker_feats, ticker_targets
 
@@ -277,7 +287,10 @@ def df_between(df, start_date=None, end_date=None):
     mask = np.ones(len(df), dtype=bool)
     if start_date is not None:
         mask_start = df['date'].apply(lambda x: x >= start_date).values
+#         print(mask_start.shape)
+#         print(mask.shape)
         mask = mask * mask_start
+
     if end_date is not None:
         mask_end = df['date'].apply(lambda x: x < end_date).values
         mask = mask * mask_end
@@ -285,23 +298,23 @@ def df_between(df, start_date=None, end_date=None):
     return df.loc[mask]
 
 
-def calc_base_time_features(series):
-    if len(series) == 0:
-        series = np.array([np.nan])
+def calc_base_time_feats(series):
+#     if len(series) == 0:
+#         series = np.array([np.nan])
         
-    feats = [series.std() / series.max(),
-             series.mean() / series.max(),
-             series.min() / series.max(),
-             np.median(series) / series.max(),
-             (series.max() - series.min()) / series.max(),
-             (series[-1] - series[0]) / series.max()
+    feats = [series.std() / series[0],
+             series.mean() / series[0],
+             series.min() / series[0],
+             np.median(series) / series[0],
+             (series.max() - series.min()) / series[0],
+             (series[-1] - series[0]) / series[0]
             ]
     
     
     return feats
 
 
-def calc_support_features(series):
+def calc_support_feats(series):
     if len(series) == 0:
         series = np.array([np.nan])
         
@@ -345,55 +358,99 @@ def base_aggs(series):
     aggs = np.array([series.mean(), series.max(), series.min(), np.median(series)])
     return aggs
     
-def calc_target_like_features(df):
+def calc_target_like_feaеs(df):
     groupby_date = df.groupby('date')['<OPEN>']
-    target_aggs_1 = base_aggs(groupby_date.apply(lambda x: single_target_1(np.array([0]+x.tolist()))).values)
-    target_aggs_2 = base_aggs(groupby_date.apply(lambda x: single_target_2(np.array([0]+x.tolist()))).values)
-    target_aggs_3 = base_aggs(groupby_date.apply(lambda x: single_target_3(np.array([0]+x.tolist()))).values)
-    target_aggs_4 = base_aggs(groupby_date.apply(lambda x: single_target_4(np.array([0]+x.tolist()))).values)
-    target_aggs_5 = base_aggs(groupby_date.apply(lambda x: single_target_5(np.array([0]+x.tolist()))).values)
-    target_aggs_6 = base_aggs(groupby_date.apply(lambda x: single_target_6(np.array([0]+x.tolist()))).values)
-    target_aggs_7 = base_aggs(groupby_date.apply(lambda x: single_target_7(np.array([0]+x.tolist()))).values)
+    target_aggs_1 = base_aggs(groupby_date.apply(lambda x: single_target_1(np.array(x.tolist()))).values)
+    target_aggs_2 = base_aggs(groupby_date.apply(lambda x: single_target_2(np.array(x.tolist()))).values)
+    target_aggs_3 = base_aggs(groupby_date.apply(lambda x: single_target_3(np.array(x.tolist()))).values)
+    target_aggs_4 = base_aggs(groupby_date.apply(lambda x: single_target_4(np.array(x.tolist()))).values)
+    target_aggs_5 = base_aggs(groupby_date.apply(lambda x: single_target_5(np.array(x.tolist()))).values)
+    target_aggs_6 = base_aggs(groupby_date.apply(lambda x: single_target_6(np.array(x.tolist()))).values)
+    target_aggs_7 = base_aggs(groupby_date.apply(lambda x: single_target_7(np.array(x.tolist()))).values)
 
     target_like_features = np.concatenate([target_aggs_1, target_aggs_2, target_aggs_3, target_aggs_4, target_aggs_5, target_aggs_6, target_aggs_7], axis=0)    
 
     return target_like_features
 
     
-def calc_feat(df, target_df, corn_date):
-    ticker = df['<TICKER>'].values[0] 
+def calc_night_gaps_feats(df):
+    open_prices = df.groupby('date')['<OPEN>'].apply(lambda x:x.tolist()[0]).reset_index()['<OPEN>'].values
+    close_prices = df.groupby('date')['<CLOSE>'].apply(lambda x:x.tolist()[-1]).reset_index()['<CLOSE>'].values
+
+    night_gaps = (open_prices[1:] - close_prices[:-1]) / close_prices[:-1]
+    
+    return night_gaps.mean(), night_gaps.min(), night_gaps.max(), night_gaps.std(), np.median(night_gaps), np.abs(night_gaps).mean()
+
+
+def calc_base_feats_aggs_by_day(df):
+    base_feats_by_day = np.array([x for x in df.groupby('date')['<OPEN>'].apply(lambda x: calc_base_time_features(np.array(x.tolist()))).values])
+    base_feats_aggs_by_day = np.concatenate([base_feats_by_day.mean(axis=0),
+                                             base_feats_by_day.max(axis=0),
+                                             base_feats_by_day.min(axis=0),
+                                             base_feats_by_day.std(axis=0),
+                                             np.median(base_feats_by_day, axis=0)])
+
+    return base_feats_aggs_by_day
+
+
+def calc_next_day_feats(df, target_df):
+    corn_date = target_df['corn_date'].values[0]
+    corn_date_df = target_df[target_df['date'] == corn_date]
+    
+    last_day_df = df_between(df, start_date=None, end_date=corn_date)
+    last_day_df = df_last(last_day_df, 1)
+    
+    if len(corn_date_df) > 0:
+        open_price = corn_date_df['<OPEN>'].values[0]
+        close_price = last_day_df['<CLOSE>'].values[-1]
+        next_day_feat = [(open_price - close_price) / close_price]
+    else:
+        next_day_feat = [np.nan]
         
-    month_series = df_between(df, corn_date - timedelta(days=31), corn_date)['<OPEN>'].values
-    week_series = df_between(df, corn_date - timedelta(days=7), corn_date)['<OPEN>'].values
+    return next_day_feat
+    
+    
+def calc_feat(df, target_df):
+    # Support values
+    corn_date = target_df['corn_date'].unique()[0]
+    ticker = df['<TICKER>'].values[0] 
+    
+    month_df = df_between(df, corn_date - timedelta(days=31), corn_date)
+    week_df = df_between(df, corn_date - timedelta(days=7), corn_date)
+    
+    month_series = month_df['<OPEN>'].values
+    week_series = week_df['<OPEN>'].values
     
     day3_df = df_between(df, start_date=None, end_date=corn_date)
     day3_df = df_last(day3_df, 3)
     day3_series = day3_df['<OPEN>'].values
     
-    if len(target_df) > 0:
-        start_val = target_df['<OPEN>'].values[0]
-        next_day_feat = [(day3_series[-1] - start_val) / day3_series[-1]]
-    else:
-        next_day_feat = [np.nan]
+    # Calculate features
+    next_day_feats = calc_next_day_feats(df, target_df)
+    month_feats = calc_base_time_feats(month_series)
+    week_feats = calc_base_time_feats(week_series)
+    day3_feats = calc_base_time_feats(day3_series)    
+    support_feats = calc_support_feats(month_series)
+    target_like_feats = calc_target_like_feats(df_between(df, corn_date - timedelta(days=31), corn_date))
+    months_base_feats_aggs_by_day = calc_base_feats_aggs_by_day(month_df)
+    week_base_feats_aggs_by_day = calc_base_feats_aggs_by_day(week_df)
+    month_night_gaps_feats = calc_night_gaps_feats(month_df)
+    week_night_gaps_feats = calc_night_gaps_feats(week_df)
     
-    month_feats = calc_base_time_features(month_series)
-    week_feats = calc_base_time_features(week_series)
-    day3_feats = calc_base_time_features(day3_series)    
+    result = np.concatenate([next_day_feats,
+                             month_feats,
+                             week_feats,
+                             day3_feats,
+                             support_feats,
+                             target_like_feats,
+                             months_base_feats_aggs_by_day,
+                             week_base_feats_aggs_by_day,
+                             month_night_gaps_feats,
+                             week_night_gaps_feats
+                            ], axis=0)
     
-    
-    intoday_base_features = []
-    for date in day3_df['date'].unique():
-        intoday_base_features.append(calc_base_time_features(day3_df[day3_df['date'] == date]['<OPEN>'].values))
-        
-    intoday_base_features = np.array(intoday_base_features).flatten()
-    
-    
-    support_features = calc_support_features(month_series)
-    target_like_features = calc_target_like_features(df_between(df, corn_date - timedelta(days=31), corn_date))
 
-    close_price = [day3_df['<CLOSE>'].values[-1]]
-    
-    result = np.concatenate([month_feats, week_feats, day3_feats, intoday_base_features, support_features, close_price, next_day_feat, target_like_features], axis=0)
+    # Form result
     result = np.expand_dims(result, axis=0)
     result = pd.DataFrame(result)
     
@@ -437,6 +494,59 @@ def calc_support_levels(series):
 
 
 
+
+
+class Ansamble:
+    def __init__(self):
+        self.models = []
+        
+
+    def fit(self, X, y_series):
+            
+        for thr in [0.01, 0.015]:
+            y_train = calc_target(y_series, single_target_3) > thr
+            lgb = lgbm.sklearn.LGBMClassifier()
+            self.models.append(lgb.fit(X.drop(['corn_date', 'ticker'], axis=1), y_train))    
+
+        for thr in [0.0, 0.01, 0.015]:
+            y_train = calc_target(y_series, single_target_2) > thr
+            lgb = lgbm.sklearn.LGBMClassifier()
+            self.models.append(lgb.fit(X.drop(['corn_date', 'ticker'], axis=1), y_train))    
+
+        for thr in [0.0, 0.01, 0.015]:
+            y_train = calc_target(y_series, single_target_4) > thr
+            lgb = lgbm.sklearn.LGBMClassifier()
+            self.models.append(lgb.fit(X.drop(['corn_date', 'ticker'], axis=1), y_train)) 
+
+        for thr in [0.0, 0.01, 0.015]:
+            y_train = calc_target(y_series, single_target_5) > thr
+            lgb = lgbm.sklearn.LGBMClassifier()
+            self.models.append(lgb.fit(X.drop(['corn_date', 'ticker'], axis=1), y_train)) 
+
+        
+    def predict_proba_matrix(self, X):
+        all_probas = []
+        for model in self.models:
+            pred_proba = model.predict_proba(X.drop(['corn_date', 'ticker'], axis=1))[:, 1]
+            all_probas.append(pred_proba)
+            
+        all_probas = np.array(all_probas)
+        
+        return all_probas
+        
+    def predict_proba(self, X):
+        proba_matrix = self.predict_proba_matrix(X)
+        proba = proba_matrix.sum()
+        
+        return proba
+    
+# ansamble = Ansamble()
+# ansamble.fit(X_train, y_train_series)
+# proba_matrix = ansamble.predict_proba_matrix(X_val)
+
+# sns.heatmap(pd.DataFrame(proba_matrix.T).corr())
+
+# plt.plot(proba_matrix.sum(axis=0))    
 
 
 
