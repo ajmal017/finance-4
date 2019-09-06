@@ -87,14 +87,15 @@ class TestApp(TestWrapper, TestClient):
             with open('models/lgb_26_09_thr04.pickle', 'rb') as f:
                 lgb = pickle.load(f)
             
-#             while int(datetime.now().strftime('%H')) != 9:
-#                 time.sleep(5)
-#                 continue            
+            while int(datetime.now().strftime('%H')) != 10:
+                #print(int(datetime.now().strftime('%H')))
+                time.sleep(0.05)
+                continue            
             
             
             print('Loading tickers')
             
-            #load_tickers(data_prefix="data/current", tickers=np.array(list(ibkr_info.keys())), start_date=datetime.today().date() - timedelta(days=40), end_date=datetime.today().date(), period=3)
+            load_tickers(data_prefix="data/current", tickers=np.array(list(ibkr_info.keys())), start_date=datetime.today().date() - timedelta(days=40), end_date=datetime.today().date(), period=3)
 
             ticker2df_test = load_dfs('data/current', np.array(list(ibkr_info.keys())))
             
@@ -107,7 +108,7 @@ class TestApp(TestWrapper, TestClient):
 
             print(pred_proba)
             #print("Start order commiting")
-            top_idxs = np.where(pred_proba > 0.2)[0]
+            top_idxs = np.where(pred_proba > 0.35)[0]
             ticker2price = {}
 
             for ticker in list(X_test.loc[top_idxs, ['ticker', 'corn_date']]['ticker'].values):
@@ -116,9 +117,6 @@ class TestApp(TestWrapper, TestClient):
                 price = df[df['date']==datetime.today().date()]['<OPEN>'].values[0]
 
                 ticker2price[ticker] = price
-
-
-            print(ticker2price)           
             
             
             self.my_order_req(ticker2price)
@@ -139,31 +137,31 @@ class TestApp(TestWrapper, TestClient):
 
         print(ticker2price)
         
-#         for ticker in ticker2price:
-#             price = ticker2price[ticker]
+        for ticker in ticker2price:
+            price = ticker2price[ticker]
                         
-#             cnt = 2300000 / (len(ticker2price)) / price
-#             cnt = (cnt // ibkr_info[ticker]['min_quantity']) * ibkr_info[ticker]['min_quantity']
+            cnt = 2300000 / (len(ticker2price)) / price
+            cnt = (cnt // ibkr_info[ticker]['min_quantity']) * ibkr_info[ticker]['min_quantity']
 
 
-#             start_price = price*1.003
-#             profit_price = price*1.01
+            start_price = price*1.003
+            profit_price = price*1.01
 
         
-#             start_price = (start_price // ibkr_info[ticker]['precise']) * ibkr_info[ticker]['precise']
-#             profit_price = (profit_price // ibkr_info[ticker]['precise']) * ibkr_info[ticker]['precise']
+            start_price = (start_price // ibkr_info[ticker]['precise']) * ibkr_info[ticker]['precise']
+            profit_price = (profit_price // ibkr_info[ticker]['precise']) * ibkr_info[ticker]['precise']
         
         
-#             contract = ContractSamples.MYStock(ticker)
+            contract = ContractSamples.MYStock(ticker)
 
-#             order_id = self.nextOrderId()
-#             self.nextOrderId()
-#             print("order_id: {}, cnt: {}, start_price: {}, profit_price: {}".format(order_id, cnt, start_price, profit_price))
+            order_id = self.nextOrderId()
+            self.nextOrderId()
+            print("order_id: {}, cnt: {}, start_price: {}, profit_price: {}".format(order_id, cnt, start_price, profit_price))
 
 
-#             parent, takeProfit = OrderSamples.TopBracketOrder(order_id, "BUY", cnt, start_price, profit_price)
-#             self.placeOrder(parent.orderId, contract, parent)
-#             self.placeOrder(takeProfit.orderId, contract, takeProfit)
+            parent, takeProfit = OrderSamples.TopBracketOrder(order_id, "BUY", cnt, start_price, profit_price)
+            self.placeOrder(parent.orderId, contract, parent)
+            self.placeOrder(takeProfit.orderId, contract, takeProfit)
 
             
 
