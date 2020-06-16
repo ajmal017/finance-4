@@ -115,22 +115,22 @@ def single_target_7(series):
     profit = series.max() / series[1:].min()
     return profit
 
-def single_target_9(series):
+def single_target_8(series):
     down_vals = series[series < series.mean()]
     profit = ((down_vals - series[0]) ** 2).sum() ** (1/2) / series[0]
     return profit
 
-def single_target_10(series):
+def single_target_9(series):
     up_vals = series[series > series.mean()]
     profit = ((up_vals - series[0]) ** 2).sum() ** (1/2) / series[0]
     return profit
 
-def single_target_11(series):
+def single_target_10(series):
     down_vals = series[series < series.mean()]
     profit = ((down_vals - series.mean()) ** 2).sum() ** (1/2) / series[0]
     return profit
 
-def single_target_12(series):
+def single_target_11(series):
     up_vals = series[series > series.mean()]
     profit = ((up_vals - series.mean()) ** 2).sum() ** (1/2) / series[0]
     return profit
@@ -158,10 +158,8 @@ def single_profit_2(series, return_idxs=False, TAKE_PROFIT_COEF = 1.01, STOP_LOS
         stop_loss_mask = series[buy_idx:-3] < stop_loss_price
 
         can_sell = (take_profit_mask | stop_loss_mask).max()
-        #can_sell = (take_profit_mask ).max()
 
         if can_sell:
-            #sell_idx = np.where(take_profit_mask )[0][0] + 2
             sell_idx = np.where(take_profit_mask | stop_loss_mask)[0][0] + buy_idx
             
             profit = (series[sell_idx] - series[buy_idx]) / series[buy_idx]
@@ -183,31 +181,29 @@ def single_profit_2(series, return_idxs=False, TAKE_PROFIT_COEF = 1.01, STOP_LOS
 
 
 
-def single_profit(series):
-    if len(series) > 10:
-        UPPER_COEF = 1.003
-        can_buy = (series[2:6] <= series[1]*UPPER_COEF).max()
-        if can_buy:
-            buy_idx = np.where(series[2:6] <= series[1]*UPPER_COEF)[0][0] + 2
-            sell_idx = len(series[:-5]) + np.random.randint(5)#+ series[-5:].argmin()
-            sell_idx = -1
-            profit = (series[sell_idx] - series[buy_idx]) / series[buy_idx]
-        else:
-            profit = 0
+def single_profit(df, datetime, target_interval):
+    target_df = df_between(df, datetime, datetime + target_interval)
+    series = target_df['<OPEN>'].values
+    
+    UPPER_COEF = 1.003
+            
+    take_profit_price = series[0] * TAKE_PROFIT_COEF
+    stop_loss_price = series[0] * STOP_LOSS_COEF
+
+    take_profit_mask = series > take_profit_price
+    stop_loss_mask = series < stop_loss_price
+
+    can_sell = (take_profit_mask | stop_loss_mask).max()
+
+    if can_sell:
+        sell_idx = np.where(take_profit_mask | stop_loss_mask)[0][0]
     else:
-        profit = 0
+        sell_idx = -1
+        
+    profit = (series[sell_idx] - series[0]) / series[0]
+
         
     return profit
-
-
-def calc_target(target_dfs, foo, df2series_foo):
-    target = []
-    for ticker_targets in target_dfs:
-        for target_df in ticker_targets:
-            val = foo(df2series_foo(target_df))
-            target.append(val)
-            
-    return np.array(target)
 
 
 def split_train_target(df, corn_datetime, target_interval):
@@ -300,30 +296,21 @@ def df_future(df, day_cnt):
 
 
 
-
+BASE_FOOS_ARR = [
+                 single_target_2,
+                 single_target_3,
+                 single_target_4,
+                 single_target_5,
+                 single_target_6,
+                 single_target_7,
+                 single_target_8,
+                 single_target_9,
+                 single_target_10,
+                 single_target_11,
+               ]
 
 def calc_base_time_feats(series):        
-    feats = [series.std() / series[0],
-             series.mean() / series[0],
-             series.min() / series[0],
-             np.median(series) / series[0],
-             (series.max() - series.min()) / series[0],
-             (series[-1] - series[0]) / series[0],
-
-             single_target_2(series),
-             single_target_3(series),
-             single_target_4(series),
-             single_target_5(series),
-             single_target_6(series),
-             single_target_7(series),
-             single_target_8(series),
-             single_target_9(series),
-             single_target_10(series),
-             single_target_11(series),
-             single_target_12(series),
-
-            ]
-    
+    feats = [foo(series) for foo in BASE_FOOS_ARR]
     
     return feats
 
@@ -365,26 +352,9 @@ def calc_support_feats(series):
                         upper_supports_diff.min() / series.max(),
                         lower_supports_diff.min() / series.max()]
     
-    
     return support_features
    
-def base_aggs(series):
-    aggs = np.array([series.mean(), series.max(), series.min(), np.median(series)])
-    return aggs
     
-def calc_target_like_feats(df):
-    groupby_date = df.groupby('date')['<OPEN>']
-    target_aggs_1 = base_aggs(groupby_date.apply(lambda x: single_target_1(np.array(x.tolist()))).values)
-    target_aggs_2 = base_aggs(groupby_date.apply(lambda x: single_target_2(np.array(x.tolist()))).values)
-    target_aggs_3 = base_aggs(groupby_date.apply(lambda x: single_target_3(np.array(x.tolist()))).values)
-    target_aggs_4 = base_aggs(groupby_date.apply(lambda x: single_target_4(np.array(x.tolist()))).values)
-    target_aggs_5 = base_aggs(groupby_date.apply(lambda x: single_target_5(np.array(x.tolist()))).values)
-    target_aggs_6 = base_aggs(groupby_date.apply(lambda x: single_target_6(np.array(x.tolist()))).values)
-    target_aggs_7 = base_aggs(groupby_date.apply(lambda x: single_target_7(np.array(x.tolist()))).values)
-
-    target_like_features = np.concatenate([target_aggs_1, target_aggs_2, target_aggs_3, target_aggs_4, target_aggs_5, target_aggs_6, target_aggs_7], axis=0)    
-
-    return target_like_features
 
     
 def calc_night_gaps_feats(df):
@@ -422,7 +392,11 @@ def calc_next_day_feats(df, target_df):
         next_day_feat = [np.nan]
         
     return next_day_feat
-  
+   
+    
+def calc_rolling_feats(df, rolling_len=60):
+    rolling = df['<OPEN>'].rolling(rolling_len).apply(lambda x: calc_base_time_feats(x)).shift(-rolling_len+1)
+    return rolling
     
     
 def calc_feat(df):
@@ -446,7 +420,6 @@ def calc_feat(df):
     m10_feats = calc_base_time_feats(m10_df['<OPEN>'].values)    
     m30_feats = calc_base_time_feats(m30_df['<OPEN>'].values)    
 
-    calc_target_like_feats
     
     week_support_feats = calc_support_feats(week_series)
 
